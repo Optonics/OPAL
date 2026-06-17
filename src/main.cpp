@@ -43,13 +43,20 @@ void setup() {
   pinMode(LASER_SSR_OUT_PIN, OUTPUT);
   digitalWrite(LASER_SSR_OUT_PIN,0);
 
+  // Drive the PWM modulation pin LOW explicitly before laser->begin() so pin 6
+  // cannot float at power-on. DiodeLaserCtrl::begin() will configure it as a
+  // PWM output and write 0 duty, but this GPIO LOW ensures it is safe even
+  // during the brief window between power-on and begin().
+  pinMode(LASER_PWM_OUT_PIN, OUTPUT);
+  digitalWrite(LASER_PWM_OUT_PIN, LOW);
+
   pinMode(GALVO_SSR_OUT_PIN, OUTPUT);
   digitalWrite(GALVO_SSR_OUT_PIN,0);
 
-  #ifdef LASER_IS_SYNRAD
+  #ifdef LASER_IS_DIODE
+  laser = new DiodeLaserCtrl();
+  #elif defined(LASER_IS_SYNRAD)
   laser = new Synrad48Ctrl();
-  #else
-  //implement PWMLaser
   #endif
   laser->begin(LASER_PWM_OUT_PIN, LASER_SSR_OUT_PIN);
   //init Galvo Protocol
@@ -85,27 +92,18 @@ void loop() {
 
 void setGalvoPosition(double x, double y)
 {
-  int tmp_x, tmp_y;
-  if(AXIS_INVERSE_X)
-    tmp_x = map(x, 0.0,X_MAX_POS_MM, 65535,0)+0.5;
-  else
-    tmp_x = map(x, 0.0,X_MAX_POS_MM, 0,65535)+0.5;
-
-  if(AXIS_INVERSE_Y)
-    tmp_y = map(y, 0.0,Y_MAX_POS_MM, 65535,0)+0.5;
-  else
-    tmp_y = map(y, 0.0,Y_MAX_POS_MM, 0,65535)+0.5;
-
+  // Float scaling in GalvoMap.h preserves sub-mm resolution; AXIS_INVERSE_*
+  // (from main.h) keep their current meaning -- both false unless defined.
+  uint16_t tmp_x = mmToGalvoCount(x, X_MAX_POS_MM, AXIS_INVERSE_X);
+  uint16_t tmp_y = mmToGalvoCount(y, Y_MAX_POS_MM, AXIS_INVERSE_Y);
   galvo->setPos(tmp_x, tmp_y);
 }
 
 void setLaserPower(double PWM)
 {
-  double tmp_PWMMin = LASER_MIN_PWM_PERCENT;
-  double tmp_Max = LASER_MAX;
-  int tmp_LaserRes = LASER_RESOLUTION;
-  double pinVal = map(PWM,0.0,tmp_Max,tmp_PWMMin,(exp2(tmp_LaserRes))+0.0);
-  laser->update((int)pinVal);
+  // duty = power, 0 = off (no Synrad floor); mapping is unit-tested in
+  // test/native/test_laser_map.cpp.
+  laser->update(laserDutyFromS(PWM, LASER_MAX, LASER_RESOLUTION));
 }
 
 void setNextFWDMSG(char MSG[150])

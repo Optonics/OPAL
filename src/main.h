@@ -38,8 +38,11 @@
 #include <XY2_100.h>
 #include <LaserController.h>
 #include <Synrad48Ctrl.h>
+#include <DiodeLaserCtrl.h>
 #include "Pins.h"
 #include "Helpers.h"
+#include "GalvoMap.h"
+#include "LaserMap.h"
 #include "MotionMGR.h"
 #include "SerialCMDReader.h"
 

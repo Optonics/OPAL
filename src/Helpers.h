@@ -25,12 +25,13 @@
 #define BUFFERSIZE 50
 #define DEFAULT_FEEDRATE 100
 #define MAX_VAL 2147483630
-#define LASER_IS_SYNRAD
+#define LASER_IS_DIODE
 #define X_MAX_POS_MM 250
 #define Y_MAX_POS_MM 250
-#define LASER_MIN_PWM_PERCENT 10
+// LASER_MIN_PWM_PERCENT removed: was a Synrad CO2 tickle floor, wrong for the
+// diode laser. setLaserPower() uses LaserMap.h which maps S=0 to 0% duty.
 #define LASER_MAX 255
-#define LASER_RESOLUTION 12;
+#define LASER_RESOLUTION 12
 
   uint64_t nanos();
 

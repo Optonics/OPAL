@@ -29,6 +29,27 @@ void MotionMGR::tic()
     case INTERPOLATING: interpolateMove(); break;
     default: break;
   }
+
+  // Tier-1 serial dead-man: cut the beam if the laser is on but OPAL is IDLE,
+  // the command buffer is empty, AND no serial line has arrived recently.
+  //
+  // The IDLE + empty-buffer requirement is critical: it prevents false-tripping
+  // while OPAL is legitimately executing a layer's buffered moves (during the
+  // host's post-stream M400 wait the buffer is non-empty or status is
+  // INTERPOLATING).  This only fires in the "host died leaving the beam on"
+  // case — nothing left to do, laser still enabled, host silent.
+  //
+  // Timeout is LASER_SERIAL_TIMEOUT_MS (defined in SerialCMDReader.h, default
+  // 1000 ms — tunable).
+  if (CURRENT_LASERENABLED
+      && _status == IDLE
+      && bufRef->isEmpty()
+      && (millis() - lastSerialMillis) > LASER_SERIAL_TIMEOUT_MS)
+  {
+    CURRENT_LASERENABLED = false;
+    setLaserPower(0);
+  }
+
   setGalvoPosition(CURRENT_CMD_X, CURRENT_CMD_Y);
   if(CURRENT_LASERENABLED)
   {
@@ -98,7 +119,20 @@ void MotionMGR::processMcode(GCode* code)
         _laser->stop();
       }
       return;
-        
+
+    case 400:
+    // M400 — "scan done" synchronisation token.
+    //
+    // Contract: the host appends "M400\n" after the last G-code of a layer and
+    // then reads replies from OPAL until it sees exactly the line "done".
+    // Because OPAL processes commands STRICTLY sequentially (processGcodes()
+    // pops one command per tic() only while _status==IDLE, and every move
+    // completes — returning to IDLE — before the next command is popped),
+    // M400 cannot be reached until every preceding move has physically
+    // finished.  "done" is therefore an accurate motion-complete signal.
+      Serial.println("done");
+      return;
+
     default:
       break;
     }

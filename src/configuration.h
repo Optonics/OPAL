@@ -28,9 +28,8 @@
 #define MBUFFERSIZE 20  //Buffersize for MCODES - number of consecutive M-Codes before another G-Code
 #define DEFAULT_FEEDRATE 100
 
-#define LASER_IS_SYNRAD
-#define LASER_RESOLUTION 12
-#define LASER_PWM_MAX 50
+// LASER_IS_DIODE and LASER_RESOLUTION are defined in Helpers.h (single source
+// of truth). LASER_PWM_MAX was unused (LaserMap.h has no floor). Removed.
 //#define LASER_G0_OFF_G1_ON
 
 #define X_MAX 250 //mm

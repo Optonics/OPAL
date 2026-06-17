@@ -33,10 +33,19 @@
 #define SERIALCMDREADER_H
 #include <Arduino.h>
 #include <CircularBuffer.h>
-#include "helpers.h"
+#include "Helpers.h"
 
 #define COMMAND_SIZE 150
 
+// Timeout for the serial dead-man: if the laser is on, OPAL is IDLE, and the
+// command buffer is empty, and no serial line has arrived in this many ms, the
+// beam is cut. 1000 ms is conservative; tune as needed.
+#define LASER_SERIAL_TIMEOUT_MS 1000
+
+// Timestamp (millis()) of the most-recently parsed command line. Updated by
+// SerialCMDReader::handleSerial() on every newline. Read by MotionMGR::tic()
+// for the dead-man check.
+extern unsigned long lastSerialMillis;
 
 class SerialCMDReader
 {

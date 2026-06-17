@@ -21,9 +21,12 @@
 
 #include <Arduino.h>
 #include <CircularBuffer.h>
-#include "helpers.h"
+#include "Helpers.h"
 #include "SerialCMDReader.h"
 
+// Timestamp of the last successfully parsed command line (millis()).
+// Initialised to 0; MotionMGR dead-man uses this with LASER_SERIAL_TIMEOUT_MS.
+unsigned long lastSerialMillis = 0;
 
 SerialCMDReader::SerialCMDReader(CircularBuffer<GCode, BUFFERSIZE> *buf)
 {
@@ -56,7 +59,7 @@ void SerialCMDReader::handleSerial()
 
       if (ch=='\n')// Command received and ready.
       {
-        
+        lastSerialMillis = millis(); // update dead-man timestamp on every received line
         pSdata = worda;
 
         /* the character / means delete block... used for comments and stuff.*/

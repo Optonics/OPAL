@@ -35,6 +35,7 @@
 #include <Arduino.h>
 #include "Helpers.h"
 #include "configuration.h"
+#include "SerialCMDReader.h"
 #include "main.h"
 
 
