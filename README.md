@@ -63,3 +63,11 @@ https://www.youtube.com/watch?v=_SwsatEJn9k
 
 Fun fact: OPAL refers to OPengALvo and the name is inspired by the sparks laser engraving does and their resemblance to the fire opal.
 
+---
+
+## OSLS1 fork notes
+
+Planned firmware improvements for the SLS use case (galvo scale calibration,
+laser/galvo timing delays, laser-off-on-G0 safety, heap churn) are tracked — as
+**future work, not yet implemented** — in [docs/future_work.md](docs/future_work.md).
+
