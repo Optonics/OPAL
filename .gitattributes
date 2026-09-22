@@ -1,0 +1,28 @@
+# OPAL is firmware built by PlatformIO, usually on Linux. Without this file a
+# Windows clone with core.autocrlf=true checks every source file out as CRLF,
+# which makes diffs between machines show whole files as changed.
+# Normalize every text file to LF, in the index and in the working tree.
+* text=auto eol=lf
+
+# Firmware sources and build config - LF explicitly, they are compiled.
+*.ino text eol=lf
+*.c   text eol=lf
+*.h   text eol=lf
+*.cpp text eol=lf
+*.hpp text eol=lf
+*.ini text eol=lf
+
+# G-code is read by the board; keep it LF like every other text file.
+*.gcode text eol=lf
+
+# Binary formats - never apply line-ending conversion to these.
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.ico  binary
+*.pdf  binary
+*.zip  binary
+*.bin  binary
+*.hex  binary
+*.elf  binary
