@@ -1,0 +1,36 @@
+name: Build
+
+# The firmware needs the board to test. The compile still needs no board. It
+# catches the error class that reaches the board unnoticed today: a file that
+# builds on one machine and not on another. Example: src/SerialCMDReader.* had
+# #include "helpers.h" for the file Helpers.h. Windows and macOS ignore case in
+# file names. Linux does not. Thus the build failed on Linux until 2026-09-23.
+#
+# Hardening rules: see AGENTS.md, "Security rules".
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  firmware:
+    name: Firmware compiles (Teensy 4.0)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - run: pip install platformio==6.2.0
+      - run: pio run -e teensy40

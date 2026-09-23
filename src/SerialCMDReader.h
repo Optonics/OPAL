@@ -33,7 +33,7 @@
 #define SERIALCMDREADER_H
 #include <Arduino.h>
 #include <CircularBuffer.h>
-#include "helpers.h"
+#include "Helpers.h"
 
 #define COMMAND_SIZE 150
 

@@ -10,7 +10,8 @@ Persistent memory for this repo. Read the workspace `../AGENTS.md` first - it ho
 4. **Convert relative time to absolute.** Never write "last week" or "soon"; write the date or the version number.
 5. **Overwrite, don't accumulate.** "Current state" and "Open threads" describe *now* - rewrite them each time they change. "Decisions" and "Gotchas" are append-mostly - but delete entries that stopped being true, and say so in the commit message.
 6. **Commit this file with the work it describes**, so the memory and the code never drift apart.
-7. Formatting: plain hyphens only (no em or en dashes), one line per paragraph (no hard wrapping), named constants over repeated magic strings in any code you write.
+7. Formatting: plain hyphens only (no em or en dashes). In Markdown, one line per paragraph (no hard wrapping). Code comments wrap at the line width of their file. Use named constants over repeated magic strings in any code you write.
+8. Docs and comments are written in simplified technical English: short declarative sentences, one idea per sentence, "Thus ..." to state a consequence. Match it.
 
 ## Project facts (stable)
 
@@ -29,9 +30,44 @@ pio run -t upload        # flash a connected Teensy
 
 There is no test suite and no CI. Nothing in this repo can be verified without hardware, which is the strongest argument for changing it as little as possible.
 
+## Security rules
+
+These rules apply to every change in this repository. CI enforces most of them. Thus a red Security run means a rule broke. It does not mean CI is flaky. Each rule states its reason. Do not drop a rule because the reason looks unlikely: most of them come from a real incident.
+
+### CI workflows (`.github/workflows/`)
+
+- Pin every action to a full commit SHA. Put the version in a comment: `uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1`. A tag can be moved to other code. In March 2026, 76 of the 77 tags of `aquasecurity/trivy-action` were moved to malicious commits.
+- Start every workflow with `permissions: {}`. Give each job only the permissions it uses. Usually this is `contents: read`.
+- Set `persist-credentials: false` on every checkout. Set `timeout-minutes` on every job.
+- Never put `${{ }}` with event data (a branch name, a tag, a PR title) inside `run:`. Pass it through `env:` and quote it: `"$TAG"`. Git allows `;` and `$(` in ref names. Thus a direct interpolation can run shell code.
+- Run a scanner as a digest-pinned image (`name@sha256:...`), not as a third-party action. The trivy compromise came through the action layer.
+- The Security workflow lints the workflows with actionlint and zizmor. Run both before you push a workflow change: `docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.12` and `pip install zizmor==1.30.1 && zizmor --offline --min-severity=low .github/workflows`. On Git Bash, prefix the docker command with `MSYS_NO_PATHCONV=1`.
+- Do not rename a job. Branch protection finds a required check by its name. Thus a renamed job stops the check without an error.
+
+### Dependencies
+
+- Pin CI tools with `==` (PlatformIO, zizmor).
+
+### Secrets
+
+- Never commit a secret: no key, no password, no API token, no certificate key.
+- gitleaks scans the whole git history. Deleting a file does not remove a secret from history. Thus a committed secret must be rotated.
+- An entry in `.gitleaksignore` means: this credential was rotated. Never add an entry for a live credential.
+
+### This repository
+
+- The repository is public. Treat every commit as published.
+- File names are case-sensitive on Linux. Match each `#include` to the file name exactly. CI builds on Linux.
+
+### Proving a fix
+
+- Show a security check fail on the bad input before you trust it to pass on the fix. A check that never failed may check nothing.
+
 ## Decisions (dated, append-mostly)
 
 - 2026-09-22 - **A `.gitattributes` was added and the working tree renormalized to LF.** The repo had none, so a Windows clone checked out 42 text files as CRLF while the index held LF, which makes diffs between machines show whole files as changed. No functional effect on firmware that is compiled, but it hides real changes in noise.
+- 2026-09-23 - **CI builds the firmware on Linux.** Its first run found a real break: `src/SerialCMDReader.*` included `helpers.h`, and the file is `Helpers.h`. Windows and macOS ignore case in file names, Linux does not. Fixed. The build also warns that `LASER_RESOLUTION` is defined three times. All three are `12`, and the one in `Helpers.h` ends with a stray `;`. Left as is, because the values agree.
+- 2026-09-23 - **No `SECURITY.md` and no Dependabot.** Decided by Solvita. A public reporting address invites mail that nobody triages. Automated update pull requests are not wanted. Thus nothing updates a pin by itself. The weekly Security run finds a new CVE, and a person bumps the pin.
 
 ## Gotchas (environment and process)
 
