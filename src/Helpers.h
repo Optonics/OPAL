@@ -22,15 +22,19 @@
 #pragma once
 
 #ifndef HELPERS_H
+// configuration.h is the one place to set the field size, the feed rate, the
+// laser type and the laser resolution. Until 2026-09-24 this file repeated all
+// four as its own literals. The coordinate mapper in main.cpp reads
+// X_MAX_POS_MM and Y_MAX_POS_MM. Thus editing X_MAX in configuration.h changed
+// nothing. Now both names come from configuration.h.
+#include "configuration.h"
+
 #define BUFFERSIZE 50
-#define DEFAULT_FEEDRATE 100
 #define MAX_VAL 2147483630
-#define LASER_IS_SYNRAD
-#define X_MAX_POS_MM 250
-#define Y_MAX_POS_MM 250
+#define X_MAX_POS_MM X_MAX
+#define Y_MAX_POS_MM Y_MAX
 #define LASER_MIN_PWM_PERCENT 10
 #define LASER_MAX 255
-#define LASER_RESOLUTION 12;
 
   uint64_t nanos();
 
