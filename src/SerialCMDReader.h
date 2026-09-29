@@ -36,6 +36,9 @@
 #include "Helpers.h"
 
 #define COMMAND_SIZE 150
+// The longest number search_string reads, in characters. Its buffer has one
+// more byte for the terminator. Thus strtod never reads past the buffer.
+#define NUMBER_CHARS_MAX 10
 
 
 class SerialCMDReader
@@ -82,12 +85,12 @@ class SerialCMDReader
     }
     
     double search_string(char key, char instruction[], int string_size) {
-      char temp[10] = "";
+      char temp[NUMBER_CHARS_MAX + 1] = "";
       for (byte i=0; i<string_size; i++) {
         if (instruction[i] == key) {
-          i++;      
+          i++;
           int k = 0;
-          while (i < string_size && k < 10) {
+          while (i < string_size && k < NUMBER_CHARS_MAX) {
             if (instruction[i] == 0 || instruction[i] == ' '
             || instruction[i] == 'E'
             || instruction[i] == 'F'

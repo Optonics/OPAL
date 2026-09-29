@@ -45,7 +45,6 @@ void SerialCMDReader::handleSerial()
       byte ch;
 
       ch = Serial.read();
-      cnt++;
       // -1 for null terminator space
       if ((pSdata - worda)>=COMMAND_SIZE-1) {
          pSdata--;
@@ -53,6 +52,9 @@ void SerialCMDReader::handleSerial()
       }
 
       *pSdata++ = (char)ch;
+      // The parser scans cnt characters. It counts what the buffer holds, not
+      // what arrived. Thus a cut line never makes the scan leave the buffer.
+      cnt = pSdata - worda;
 
       if (ch=='\n')// Command received and ready.
       {
@@ -63,6 +65,10 @@ void SerialCMDReader::handleSerial()
         if (worda[0] == '/' || worda[0] == '(' || worda[0] == ';')
         {
           Serial.println("ok");
+          // A comment is cleared like a command. Otherwise its characters
+          // stay in the buffer and in cnt, and the next line reads them as
+          // its own words.
+          init_process_string(worda);
           return;
         }
         else
