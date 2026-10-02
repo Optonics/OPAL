@@ -44,6 +44,8 @@ small correction table if edge measurement exceeds tolerance. Start linear.
 
 ## 2. Galvo settling / laser timing delays  (HIGH — biggest mark-quality win)
 
+**Done on `feature/diode-laser-timing` (2026-10-02), waiting for the bench:** laser-on and laser-off delays, the jump delay, and a beam that fires only while a G1 scans. Measurements: `docs/benchmarks/`.
+
 **Current:** `MotionMGR::tic()` (`src/MotionMGR.cpp`) sets the interpolated galvo
 position and the laser power in the same step, with **no lead/lag compensation**.
 The physical mirror lags the commanded position, so:
@@ -65,6 +67,8 @@ Make each a tunable constant (start) and expose for calibration.
 
 ## 3. Enforce laser-off on G0  (HIGH — safety, small change)
 
+**Done on `feature/diode-laser-timing`:** `G0` and `G28` disarm the beam.
+
 **Current:** `processGcode()` case 0 (`G0`) only sets XY; it does **not** touch
 laser state. Only `M3`/`M5` gate the beam (`CURRENT_LASERENABLED`). Today the
 slicer always emits `M5` before each `G0` travel and `M3` before each mark
@@ -77,6 +81,8 @@ Defense in depth: a single missing `M5` should never leave the beam on during a
 rapid.
 
 ## 4. Jump (rapid) settle handling  (MEDIUM)
+
+**Done on `feature/diode-laser-timing`:** `JUMP_DELAY_MIN_US` plus `JUMP_DELAY_PER_MM_US` per mm before the next command.
 
 **Current:** in `interpolateMove()`, a `G0` (`CURRENT_CODE == 0`) teleports
 straight to the target in a single tic and immediately returns to `IDLE`, so the
