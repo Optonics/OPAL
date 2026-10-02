@@ -33,7 +33,8 @@ namespace sim {
 extern uint64_t now_ns;
 
 // One pin write, in the order the firmware made them.
-enum class PinOp { Mode, Digital, Analog };
+// LoadImmediate and Restart come from lib/LaserController/FlexPwmTiming.
+enum class PinOp { Mode, Digital, Analog, LoadImmediate, Restart };
 struct PinEvent {
   uint64_t t;
   int pin;

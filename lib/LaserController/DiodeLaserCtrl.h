@@ -47,6 +47,7 @@ class DiodeLaserCtrl : public LaserController {
     bool isHalted();
 
   private:
+    void dark();
     uint16_t laserPWM_OUT_Pin = 0;
     uint16_t laserPSU_SSR_Pin = 0;
     uint16_t lastPWM          = 0;

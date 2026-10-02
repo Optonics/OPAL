@@ -27,6 +27,7 @@ void MotionMGR::tic()
   switch (_status) {
     case IDLE: processGcodes(); break;
     case INTERPOLATING: interpolateMove(); break;
+    case SETTLING: if (_NOW >= SETTLE_ENDNANOS) _status = IDLE; break;
     default: break;
   }
 
@@ -46,21 +47,45 @@ void MotionMGR::tic()
       && bufRef->isEmpty()
       && (millis() - lastSerialMillis) > LASER_SERIAL_TIMEOUT_MS)
   {
-    CURRENT_LASERENABLED = false;
-    setLaserPower(0);
+    CURRENT_LASERENABLED = false;           // updateBeam() darkens the pin below
   }
 
   setGalvoPosition(CURRENT_CMD_X, CURRENT_CMD_Y);
-  if(CURRENT_LASERENABLED)
+  updateBeam();
+}
+
+// The beam fires only while the mirror scans. M3 arms it; it lights when a G1
+// is moving (after LASER_ON_DELAY_US) and goes dark when the G1 ends (after
+// LASER_OFF_DELAY_US), unless the next queued command is another G1, as at
+// the corners of a contour. Thus a host that is slow to send the next line
+// leaves the beam dark, not lit on one spot: OPAL answers "ok" when it reads
+// a line, so the queue is often empty between lines.
+void MotionMGR::updateBeam()
+{
+  bool scanMove = _status == INTERPOLATING && CURRENT_CODE == 1;
+  if (!CURRENT_LASERENABLED)
+    BEAM_ON = false;
+  else if (scanMove && !isMoveFirstInterpolation)
+    BEAM_ON = BEAM_ON || _NOW >= CURRENT_STARTNANOS + LASER_ON_DELAY_US * NS_PER_US;
+  else if (scanMove)
+    ;                                       // a G1 starts on the next pass: hold
+  else if (BEAM_ON && !nextIsScan())
+    BEAM_ON = _NOW < LAST_SCAN_ENDNANOS + LASER_OFF_DELAY_US * NS_PER_US;
+
+  double power = BEAM_ON ? CURRENT_S : 0;
+  if (power != LAST_POWER)
   {
-    if(LASER_CHANGED)
-    {
-      setLaserPower(CURRENT_S);
-      LASER_CHANGED = false;
-    }
+    setLaserPower(power);
+    LAST_POWER = power;
   }
-  else
-    setLaserPower(0);
+}
+
+// The command after this one is a G1. The queue pops from its back.
+bool MotionMGR::nextIsScan()
+{
+  if (bufRef->isEmpty()) return false;
+  const GCode &next = bufRef->last();
+  return next.codeprefix == 'G' && next.code == 1;
 }
 
 
@@ -80,7 +105,6 @@ void MotionMGR::processMcode(GCode* code)
       
       setVal(&CURRENT_S, code->s);
       CURRENT_LASERENABLED = true;
-      LASER_CHANGED = true;
       break;
     case 5:
     //M5
@@ -102,21 +126,29 @@ void MotionMGR::processMcode(GCode* code)
 
     case 80:
     //M80
-    Serial.print("Set 1 high");
+    // A whole line, and only when debugging: text without a line end ran
+    // into the next "ok" ("Set 1 highok"), which the host waits for.
+    #ifdef DEBUG_GCODES
+      Serial.println("Set 1 high");
+    #endif
       digitalWrite(LASER_SSR_OUT_PIN,1);
       if(_laser->isHalted())
       {
         delay(250);
         _laser->begin(LASER_PWM_OUT_PIN,LASER_SSR_OUT_PIN);
+        LAST_POWER = 0;                     // begin() leaves the pin dark
       }
       return;
     case 81:
     //M81
-    Serial.print("Set 1 low");
+    #ifdef DEBUG_GCODES
+      Serial.println("Set 1 low");
+    #endif
       digitalWrite(LASER_SSR_OUT_PIN,0);
       if(!_laser->isHalted())
       {
         _laser->stop();
+        LAST_POWER = 0;                     // stop() leaves the pin dark
       }
       return;
 
@@ -198,14 +230,11 @@ void MotionMGR::processGcode(GCode* code)
   // Serial.print("\n CURRENT_FROM_Z: ");Serial.print(CURRENT_FROM_Z);
   // Serial.print("\n CURRENT_CODE: ");Serial.print(CURRENT_CODE);
 
-  double new_S = 0;
-  setVal(&new_S, code->s);
-  LASER_CHANGED = new_S != CURRENT_S;
-
   CURRENT_CODE = 0;
   switch (code->code) {
     case 0:
       CURRENT_CODE = 0;
+      CURRENT_LASERENABLED = false;         // a jump is never lit, M5 or not
       setXY(code);
       break;
    case 1:
@@ -242,6 +271,7 @@ void MotionMGR::processGcode(GCode* code)
       break; */
     case 28:
       CURRENT_CODE = 28;
+      CURRENT_LASERENABLED = false;
       CURRENT_TO_X = 0;
       CURRENT_TO_Y = 0;
       CURRENT_TO_Z = 0;
@@ -251,6 +281,12 @@ void MotionMGR::processGcode(GCode* code)
       break;
   }
   _status = INTERPOLATING;
+}
+
+// v clamped to 0..max; NaN gives 0.
+double MotionMGR::inField(double v, double max)
+{
+  return fmin(fmax(v, 0.0), max);
 }
 
 void MotionMGR::setVal(double* varToSet, double valToSet)
@@ -285,14 +321,21 @@ void MotionMGR::interpolateMove()
   {
     if(CURRENT_CODE == 0 || CURRENT_CODE == 28)
     {
-      //dont interpolate
+      // A jump is one step. The next command waits until the mirror has
+      // arrived: JUMP_DELAY_MIN_US plus JUMP_DELAY_PER_MM_US per mm.
+      // On field coordinates: the mirror saturates at the field edge, and a
+      // garbage target (1e400, nan) must not become an endless wait.
+      double dx = inField(CURRENT_TO_X, X_MAX_POS_MM) - inField(CURRENT_FROM_X, X_MAX_POS_MM);
+      double dy = inField(CURRENT_TO_Y, Y_MAX_POS_MM) - inField(CURRENT_FROM_Y, Y_MAX_POS_MM);
+      double jump = sqrt(dx * dx + dy * dy);
+      SETTLE_ENDNANOS = _NOW + (uint64_t)((JUMP_DELAY_MIN_US + jump * JUMP_DELAY_PER_MM_US) * NS_PER_US);
       CURRENT_FROM_X = CURRENT_TO_X;
       CURRENT_FROM_Y = CURRENT_TO_Y;
       CURRENT_FROM_Z = CURRENT_TO_Z;
       CURRENT_CMD_X = CURRENT_TO_X;
       CURRENT_CMD_Y = CURRENT_TO_Y;
       CURRENT_CMD_Z = CURRENT_TO_Z;
-      _status = IDLE;
+      _status = SETTLING;
       isMoveFirstInterpolation = true;
       return;
     }
@@ -317,6 +360,7 @@ void MotionMGR::interpolateMove()
     CURRENT_CMD_X = CURRENT_TO_X;
     CURRENT_CMD_Y = CURRENT_TO_Y;
     CURRENT_CMD_Z = CURRENT_TO_Z;
+    if (CURRENT_CODE == 1) LAST_SCAN_ENDNANOS = _NOW;
     _status = IDLE;
     isMoveFirstInterpolation = true;
     return;

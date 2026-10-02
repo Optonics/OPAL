@@ -39,7 +39,8 @@
 #include "main.h"
 
 
-enum MotionStatus {IDLE, INTERPOLATING};
+// SETTLING: after a jump, waiting for the mirror before the next command.
+enum MotionStatus {IDLE, INTERPOLATING, SETTLING};
 
 class MotionMGR
 {
@@ -59,6 +60,9 @@ private:
   void setVal(double* varToSet, double valToSet);
   void setValG91(double* varToSet, double valToAdd, double base);
   void setXY(GCode* code);
+  void updateBeam();
+  static double inField(double v, double max);
+  bool nextIsScan();
   CircularBuffer<GCode, BUFFERSIZE> *bufRef;
   CircularBuffer<GCode, BUFFERSIZE> mBuf;
 
@@ -88,6 +92,10 @@ private:
   double CURRENT_DURATION = 0;
   bool CURRENT_ABSOLUTE = true;
   bool CURRENT_LASERENABLED = false;
-  bool LASER_CHANGED = false;
+  bool BEAM_ON = false;                 // the beam is lit (armed and scanning)
+  double LAST_POWER = 0;                // what setLaserPower() last got
+  uint64_t SETTLE_ENDNANOS = 0;
+  uint64_t LAST_SCAN_ENDNANOS = 0;
+  static constexpr uint64_t NS_PER_US = 1000;
 };
 #endif

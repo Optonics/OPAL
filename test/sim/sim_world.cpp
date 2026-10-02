@@ -61,3 +61,9 @@ float tempmonGetTemp() { return 42.0f; }
 // unoptimised build does. Every laser class overrides it.
 #include <LaserController.h>
 bool LaserController::isHalted() { return true; }
+
+// lib/LaserController/FlexPwmTiming.cpp writes Teensy registers; here the two
+// calls are recorded, and the replay applies them to the laser pin.
+#include <FlexPwmTiming.h>
+void flexPwmLoadImmediately(int pin) { sim::pin_events.push_back({sim::now_ns, pin, sim::PinOp::LoadImmediate, 1}); }
+void flexPwmRestartPeriod(int pin) { sim::pin_events.push_back({sim::now_ns, pin, sim::PinOp::Restart, 1}); }

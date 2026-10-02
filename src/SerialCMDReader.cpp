@@ -39,11 +39,21 @@ void SerialCMDReader::begin(){
 
 void SerialCMDReader::stop(){}
 
+// Reads what has arrived, up to SERIAL_BYTES_PER_PASS bytes. One byte per
+// pass made a 30-byte line take 30 passes of loop(); the queue then ran dry
+// while a short scan line was still being read. A full queue stops the
+// reading, and USB flow control holds the rest.
 void SerialCMDReader::handleSerial()
 {
-  if(!SerialCMDReader::bufRef->isFull())
-    if (Serial.available()) {
+  for (int i = 0; i < SERIAL_BYTES_PER_PASS; i++) {
+    if (SerialCMDReader::bufRef->isFull() || !Serial.available()) return;
+    handleByte();
+  }
+}
 
+void SerialCMDReader::handleByte()
+{
+    {
       static char worda[COMMAND_SIZE], *pSdata=worda;
       byte ch;
 
@@ -131,7 +141,9 @@ GCode* SerialCMDReader::process_string(char instruction[])
     newCode->t = getVal('T', instruction, cnt);
 
     Serial.println("ok"); 
-    Serial.println(tempmonGetTemp());   
+  #ifdef REPORT_TEMP_EACH_G
+    Serial.println(tempmonGetTemp());
+  #endif
     return newCode;
   } //END of Gcode
   else 

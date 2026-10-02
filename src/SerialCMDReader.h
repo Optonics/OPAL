@@ -58,6 +58,7 @@ class SerialCMDReader
     void stop(void);
     
     void handleSerial();
+    void handleByte();
     GCode* process_string(char instruction[]);
   private:
     int cnt = 0;

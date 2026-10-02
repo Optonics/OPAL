@@ -86,18 +86,27 @@ Replay::Replay(int laser_pin, double field_mm, uint64_t mirror_tau_ns)
   if (analog_frequency_hz > 0) period_ns_ = (uint64_t)std::llround(NS_PER_S / analog_frequency_hz);
   period_origin_ns_ = analog_frequency_set_ns;
   duty_max_ = (1 << analog_resolution_bits) - 1;
+  // The duty latches at the next period boundary, or at once after
+  // flexPwmLoadImmediately. A restart starts a new period now.
+  bool immediate = false;
+  uint64_t origin = period_origin_ns_;
   for (const auto &e : pin_events) {
     if (e.pin != laser_pin) continue;
-    if (e.op == PinOp::Mode) {
+    if (e.op == PinOp::LoadImmediate) {
+      immediate = true;
+    } else if (e.op == PinOp::Restart) {
+      origin = e.t;
+      changes_.push_back({e.t, 4, 0});
+    } else if (e.op == PinOp::Mode) {
       changes_.push_back({e.t, 0, 0});
     } else if (e.op == PinOp::Digital) {
       changes_.push_back({e.t, 1, e.value});
     } else {
       changes_.push_back({e.t, 3, 0});
       uint64_t latch = e.t;
-      if (period_ns_ > 0 && e.t > period_origin_ns_) {
-        uint64_t since = e.t - period_origin_ns_;
-        latch = period_origin_ns_ + ((since + period_ns_ - 1) / period_ns_) * period_ns_;
+      if (!immediate && period_ns_ > 0 && e.t > origin) {
+        uint64_t since = e.t - origin;
+        latch = origin + ((since + period_ns_ - 1) / period_ns_) * period_ns_;
       }
       changes_.push_back({latch, 2, e.value});
     }
@@ -105,7 +114,9 @@ Replay::Replay(int laser_pin, double field_mm, uint64_t mirror_tau_ns)
   std::stable_sort(changes_.begin(), changes_.end(),
                    [](const Change &a, const Change &b) { return a.t < b.t; });
   State s;
+  s.origin = period_origin_ns_;
   for (const auto &c : changes_) {
+    if (c.kind == 4) s.origin = c.t;
     if (c.kind == 0) s.gpio = true;
     if (c.kind == 1) s.level = c.value;
     if (c.kind == 2) s.duty = c.value;
@@ -131,7 +142,7 @@ bool Replay::high(uint64_t t) const {
   if (s.gpio) return s.level != 0;
   if (s.duty <= 0) return false;
   if (period_ns_ == 0 || s.duty >= duty_max_) return true;
-  uint64_t phase = (t - period_origin_ns_) % period_ns_;
+  uint64_t phase = (t - s.origin) % period_ns_;
   return phase < (uint64_t)((double)s.duty / (duty_max_ + 1) * period_ns_);
 }
 

@@ -80,7 +80,7 @@ class Replay {
  private:
   struct Change {
     uint64_t t;
-    int kind;   // 0 mux to GPIO, 1 GPIO level, 2 PWM duty latched, 3 mux to PWM
+    int kind;   // 0 mux to GPIO, 1 GPIO level, 2 PWM duty latched, 3 mux to PWM, 4 period restart
     int value;
   };
   std::vector<Change> changes_;
@@ -96,6 +96,7 @@ class Replay {
     bool gpio = true;
     int level = 0;
     int duty = 0;
+    uint64_t origin = 0;   // start of the PWM period count
   };
   std::vector<std::pair<uint64_t, State>> snapshots_;
   State state_at(uint64_t t) const;

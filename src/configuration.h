@@ -22,7 +22,27 @@
 #pragma once
 #ifndef CONFIGURATION_H
 
-#define DEBUG_GCODES
+// Prints two lines for every M-code. The host discards them, but each one is
+// USB traffic the host must read between two commands. On for debugging only.
+//#define DEBUG_GCODES
+// Prints the die temperature after every G line. Same cost; off by default.
+//#define REPORT_TEMP_EACH_G
+
+// Laser timing. The beam fires only while the mirror scans a G1. These
+// delays are machine values to calibrate on a coupon or a scope; they start
+// where they change little (docs/benchmarks).
+//
+// After a G1 starts, the beam waits this long: the mirror starts late.
+#define LASER_ON_DELAY_US 0
+// After a G1 ends, the beam stays on this long: the mirror ends late.
+#define LASER_OFF_DELAY_US 0
+// After a G0 or G28, the next command waits this long, plus the per-mm part
+// for the jump length, so the mirror has arrived before a line starts.
+#define JUMP_DELAY_MIN_US 100
+#define JUMP_DELAY_PER_MM_US 4
+// Serial bytes read per pass of loop(). One byte per pass made a 30-byte
+// line take 30 passes; a whole line per pass keeps the queue fed.
+#define SERIAL_BYTES_PER_PASS 64
 
 #define CMDBUFFERSIZE 50 //Number of cashed GCodes
 #define MBUFFERSIZE 20  //Buffersize for MCODES - number of consecutive M-Codes before another G-Code
