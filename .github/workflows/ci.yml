@@ -9,7 +9,8 @@ name: Build
 # Hardening rules: see AGENTS.md, "Security rules".
 on:
   push:
-    branches: [master]
+    # feature/diode-laser-control is the firmware on the OSLS-1.
+    branches: [master, 'feature/**']
   pull_request:
 
 permissions: {}
@@ -48,3 +49,45 @@ jobs:
       # The parser in src/SerialCMDReader.* needs no board. The runner's g++
       # builds it with a fake Serial port and the address sanitizer.
       - run: sh test/native/run.sh
+      # The galvo and laser mappings (GalvoMap.h, LaserMap.h).
+      - name: Galvo and laser map tests
+        run: |
+          for t in test_galvo_map test_laser_map; do
+            g++ -std=c++11 -Wall -Werror "test/native/$t.cpp" -o "$RUNNER_TEMP/$t"
+            "$RUNNER_TEMP/$t"
+          done
+
+  simulator:
+    name: Firmware loop in the simulator (sanitizers, coverage)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # The real setup() and loop() on a simulated clock, laser pin and USB
+      # port (test/sim/README.md).
+      - run: sh test/sim/run.sh
+      - run: pip install gcovr==8.3
+      # Every line the tests can reach is covered. The lines below 100 % cannot
+      # run; test/sim/README.md lists them. A drop under the gate means new
+      # code without a test.
+      - run: sh test/sim/run.sh --coverage
+        env:
+          MIN_LINE_COVERAGE: '97'
+
+  timing:
+    name: Laser timing benchmark (simulator)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # The table goes to the run summary. It measures, it does not gate:
+      # the model numbers are assumptions until the bench confirms them.
+      - run: sh test/sim/run.sh --bench >> "$GITHUB_STEP_SUMMARY"
