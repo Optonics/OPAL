@@ -22,16 +22,19 @@
 #pragma once
 
 #ifndef HELPERS_H
+// configuration.h is the one place to set the field size, the feed rate, the
+// laser type and the laser resolution. This file repeats none of them. The
+// coordinate mapper in main.cpp reads X_MAX_POS_MM and Y_MAX_POS_MM. Both
+// names come from configuration.h. Thus editing X_MAX there takes effect.
+#include "configuration.h"
+
 #define BUFFERSIZE 50
-#define DEFAULT_FEEDRATE 100
 #define MAX_VAL 2147483630
-#define LASER_IS_DIODE
-#define X_MAX_POS_MM 250
-#define Y_MAX_POS_MM 250
-// LASER_MIN_PWM_PERCENT removed: was a Synrad CO2 tickle floor, wrong for the
-// diode laser. setLaserPower() uses LaserMap.h which maps S=0 to 0% duty.
+#define X_MAX_POS_MM X_MAX
+#define Y_MAX_POS_MM Y_MAX
+// S range of M3. LaserMap.h maps S=0 to 0% duty: no Synrad CO2 tickle floor,
+// which would keep a diode lit on every laser-off jump.
 #define LASER_MAX 255
-#define LASER_RESOLUTION 12
 
   uint64_t nanos();
 

@@ -1,0 +1,50 @@
+name: Build
+
+# The firmware needs the board to test. The compile needs no board. It catches
+# the error class that otherwise reaches the board unnoticed: a file that
+# builds on one machine and not on another. Example: #include "helpers.h" for
+# the file Helpers.h. Windows and macOS ignore case in file names. Linux does
+# not. Thus that build fails on Linux only.
+#
+# Hardening rules: see AGENTS.md, "Security rules".
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  firmware:
+    name: Firmware compiles (Teensy 4.0)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - run: pip install platformio==6.2.0
+      - run: pio run -e teensy40
+
+  parser:
+    name: G-code parser tests (host, sanitizers)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # The parser in src/SerialCMDReader.* needs no board. The runner's g++
+      # builds it with a fake Serial port and the address sanitizer.
+      - run: sh test/native/run.sh
